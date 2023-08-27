@@ -14,6 +14,9 @@ class Vecktor_AquaOnePlugin
 {
   private string $setting_slug = 'our-word-filter';
   private string $setting_slug__options = 'word-filter-options';
+  private string $words_to_filter_db_option = 'aquaoneplugin__words_to_filter';
+  private string $action_name_for_save_filter_words = 'aquaoneplugin__action__save_filter_words';
+  private string $nonce_name_for_save_filter_words = 'aquaoneplugin__nonce__save_filter_words';
   function __construct()
   {
     add_action('admin_menu', array($this, 'our_menu'));
@@ -67,20 +70,39 @@ class Vecktor_AquaOnePlugin
   }
 
   function word_filter_page()
-  { ?>
+  {
+    $word_filter_option = $this->words_to_filter_db_option;
+?>
     <div class="wrap">
       <h1>Word Filter</h1>
+      <?php if (isset($_POST['just_submitted']) and $_POST['just_submitted'] == "true") $this->handle_form(); ?>
       <form method="POST">
+        <input type="hidden" name="just_submitted" value="true" />
+        <?php wp_nonce_field($this->action_name_for_save_filter_words, $this->nonce_name_for_save_filter_words); ?>
         <label for="plugin_words_to_filter">
           <p>Enter a <strong>comma-separated</strong> list of words to filter your site contents</p>
         </label>
         <div class="word-filter__flex-container">
-          <textarea name="plugin_words_to_filter" id="plugin_words_to_filter" cols="30" rows="10" placeholder="bad, mean, awful, horrible"></textarea>
+          <textarea name="<?php echo $word_filter_option; ?>" id="<?php echo $word_filter_option; ?>" cols="30" rows="10" placeholder="bad, mean, awful, horrible"><?php echo esc_textarea(get_option($word_filter_option)); ?></textarea>
         </div>
         <input type="submit" name="submit" id="submit" class="button button-primary" value="Save Changes" />
       </form>
     </div>
-  <?php }
+    <?php }
+
+  function handle_form()
+  {
+    if (wp_verify_nonce($_POST[$this->nonce_name_for_save_filter_words], $this->action_name_for_save_filter_words) and current_user_can('manage_options')) {
+      update_option($this->words_to_filter_db_option, sanitize_text_field($_POST[$this->words_to_filter_db_option])); ?>
+      <div class="updated">
+        <p>Your filtered words were saved</p>
+      </div>
+    <?php } else { ?>
+      <div class="error">
+        <p>Sorry, you do not have permission to perform that action</p>
+      </div>
+    <?php }
+  }
 
   function options_sub_page()
   { ?>

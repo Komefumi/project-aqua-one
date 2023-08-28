@@ -12,14 +12,41 @@ if (!defined('ABSPATH')) exit; // exit if accessed directly
 
 class Vecktor_AquaOnePlugin
 {
-  private string $setting_slug = 'our-word-filter';
-  private string $setting_slug__options = 'word-filter-options';
+  private string $settings_slug = 'aquaoneplugin-our-word-filter';
+  private string $settings_section_slug = 'aquaoneplugin-word-filter-options';
+  private string $settings_section_id = 'aquaoneplugin__settings_section_id';
+  private string $settings__replacement_text_section_slug = 'aquaoneplugin-settings-replacement-text-section';
+  private string $settings__replacement__replacement_fields__group_id = 'aquaoneplugin__settings__replacement_fields__group_id';
   private string $words_to_filter_db_option = 'aquaoneplugin__words_to_filter';
+  private string $replacement_text__db_option = 'aquaoneplugin__replacement_text';
   private string $action_name_for_save_filter_words = 'aquaoneplugin__action__save_filter_words';
   private string $nonce_name_for_save_filter_words = 'aquaoneplugin__nonce__save_filter_words';
   function __construct()
   {
     add_action('admin_menu', array($this, 'our_menu'));
+    add_action('admin_init', array($this, 'our_settings'));
+    if (get_option($this->words_to_filter_db_option)) add_filter('the_content', array($this, 'filter_logic'));
+  }
+
+  function our_settings()
+  {
+    add_settings_section($this->settings__replacement_text_section_slug, null, null, $this->settings_slug);
+    register_setting($this->settings__replacement__replacement_fields__group_id, $this->replacement_text__db_option);
+    add_settings_field('replacement-text', 'Filtered Text', array($this, 'replacement_fields_html'), $this->settings_slug, $this->settings_section_slug);
+  }
+
+  function replacement_fields_html()
+  {
+?>
+    <input type="text" name="<?php echo $this->replacement_text__db_option ?>" value="<?php echo esc_attr(get_option($this->replacement_text__db_option, '****')); ?>">
+    <p class="description">Leave blank to simply remove the filtered words.</p>
+  <?php }
+
+  function filter_logic($content)
+  {
+    $bad_words = explode(',', get_option($this->words_to_filter_db_option));
+    $bad_words_trimmed = array_map('trim', $bad_words);
+    return str_ireplace($bad_words_trimmed, '****', $content);
   }
 
   function our_menu()
@@ -29,7 +56,7 @@ class Vecktor_AquaOnePlugin
       'Word to Filter',
       'Word Filter',
       $required_capability_as_permission,
-      $this->setting_slug,
+      $this->settings_slug,
       array($this, 'word_filter_page'),
       plugin_dir_url(__FILE__) . 'custom.svg',
       100,
@@ -46,19 +73,19 @@ class Vecktor_AquaOnePlugin
     );
     */
     add_submenu_page(
-      $this->setting_slug,
+      $this->settings_slug,
       'Words To Filter',
       'Words List',
       $required_capability_as_permission,
-      $this->setting_slug,
+      $this->settings_section_slug,
       array($this, 'word_filter_page'),
     );
     add_submenu_page(
-      $this->setting_slug,
+      $this->settings_slug,
       'Word Filter Options',
       'Options',
       $required_capability_as_permission,
-      $this->setting_slug__options,
+      $this->settings_section_slug,
       array($this, 'options_sub_page'),
     );
     add_action("load-$main_page_hook", array($this, 'main_page_assets'));
@@ -72,7 +99,7 @@ class Vecktor_AquaOnePlugin
   function word_filter_page()
   {
     $word_filter_option = $this->words_to_filter_db_option;
-?>
+  ?>
     <div class="wrap">
       <h1>Word Filter</h1>
       <?php if (isset($_POST['just_submitted']) and $_POST['just_submitted'] == "true") $this->handle_form(); ?>
@@ -106,7 +133,16 @@ class Vecktor_AquaOnePlugin
 
   function options_sub_page()
   { ?>
-    <div>Options Page</div>
+    <div class="wrap">
+      <h1>Word Filter Options</h1>
+      <form action="options.php" method="post">
+        <?php
+        settings_fields($this->settings__replacement__replacement_fields__group_id);
+        do_settings_sections($this->settings_section_slug);
+        submit_button();
+        ?>
+      </form>
+    </div>
 <?php }
 }
 
